@@ -26,5 +26,6 @@
         <module>graalvm-alfresco-share</module>
         <module>graalvm-alfresco-solr4</module>
         <module>graalvm-alfresco-search-services</module>
+        <module>jdk11-alfresco-repository</module>
     </modules>
 </project>

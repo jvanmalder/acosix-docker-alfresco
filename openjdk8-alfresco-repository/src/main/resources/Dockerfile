@@ -125,8 +125,14 @@ RUN tar xzf /tmp/alfresco-pdf-renderer-*-linux.tgz \
    && rm /tmp/alfresco-pdf-renderer-*-linux.tgz \
    && chmod 755 /usr/bin/alfresco-pdf-renderer
 
+# Public HTTP ports for reverse-proxy: 8080 / 8081 (assumed secured via SSL)
+# Private HTTP ports for SOLR: 8082 / 8083 (active SSL)
+# JMX / RMI port: 5001 (aligned with SOLR + Share images so that each havea a distinct port - it's hard to forward JMX / RMI otherwise due JVM having to know the public port you're exposing via Docker)
+# Various protocol ports: 10025 (inboundSMTP) / 10445,10137-10139 (CIFS/SMB) / 10021 FTP (active) / 11000-11099 FTP (passive)
+EXPOSE 8080 8081 8082 8083 5001 10445 10137-10139 10025 10021 11000-11099
+
 # add prepared files that would be too awkward to handle via RUN / sed
-COPY *.jar alfresco.xml alfresco-logrotate.d initAlfresco.sh prepareWarFiles.js alfresco-ng.conf repository-config /tmp/
+COPY *.jar alfresco.xml alfresco-logrotate.d initAlfresco.sh prepareWarFiles.js alfresco-ng.conf repository-config defaultArtifacts /tmp/
 
 # apply our Alfresco Repository default configurations
 RUN mkdir -p /srv/alfresco/config /srv/alfresco/modules /etc/tomcat8/Catalina/localhost \
@@ -143,31 +149,50 @@ RUN mkdir -p /srv/alfresco/config /srv/alfresco/modules /etc/tomcat8/Catalina/lo
    && mv /tmp/initAlfresco.sh /etc/my_init.d/50_initAlfresco.sh \
    && chmod +x /etc/my_init.d/50_initAlfresco.sh
 
-# Public HTTP ports for reverse-proxy: 8080 / 8081 (assumed secured via SSL)
-# Private HTTP ports for SOLR: 8082 / 8083 (active SSL)
-# JMX / RMI port: 5001 (aligned with SOLR + Share images so that each havea a distinct port - it's hard to forward JMX / RMI otherwise due JVM having to know the public port you're exposing via Docker)
-# Various protocol ports: 10025 (inboundSMTP) / 10445,10137-10139 (CIFS/SMB) / 10021 FTP (active) / 11000-11099 FTP (passive)
-EXPOSE 8080 8081 8082 8083 5001 10445 10137-10139 10025 10021 11000-11099
+ARG maven_required_artifacts=
+ARG alfresco_platform_version=6.0.7-ga
+ARG alfresco_api_explorer_version=6.0.7-ga
+ARG alfresco_mmt_version=6.0
+ARG alfresco_root_version=6.0
+ARG alfresco_aos_version=1.1.6
+ARG alfresco_vti_bin_version=1.1.5
+ARG alfresco_share_services_version=6.0.c
+ARG alfresco_platform_war_artifact=
+ARG alfresco_platform_root_war_artifact=
+ARG maven_active_repositories='[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'
+ARG jmx_rmi_port=5001
+
+ENV MAVEN_REQUIRED_ARTIFACTS=$maven_required_artifacts
+ENV ALFRESCO_PLATFORM_VERSION=$alfresco_platform_version
+ENV ALFRESCO_API_EXPLORER_VERSION=$alfresco_api_explorer_version
+ENV ALFRESCO_MMT_VERSION=$alfresco_mmt_version
+ENV ALFRESCO_ROOT_VERSION=$alfresco_root_version
+ENV ALFRESCO_AOS_VERSION=$alfresco_aos_version
+ENV ALFRESCO_VTI_BIN_VERSION=$alfresco_vti_bin_version
+ENV ALFRESCO_SHARE_SERVICES_VERSION=$alfresco_share_services_version
+ENV ALFRESCO_PLATFORM_WAR_ARTIFACT=$alfresco_platform_war_artifact
+ENV ALFRESCO_PLATFORM_ROOT_WAR_ARTIFACT=$alfresco_platform_root_war_artifact
+ENV MAVEN_ACTIVE_REPOSITORIES=$maven_active_repositories
+ENV JMX_RMI_PORT=$jmx_rmi_port
+
+# build your custom Alfresco now instead of on first run
+RUN jjs -scripting /var/lib/tomcat8/prepareWarFiles.js -- /tmp \
+   && mv /tmp/*.war /var/lib/tomcat8/webapps/ \
+   && mv /tmp/*.jar /srv/alfresco/modules/ || true \
+   && rm -f /tmp/*.jar /tmp/*.amp /tmp/*.war* /tmp/PUT_ARTIFACTS_HERE
+
+# fixup bundled log4j.properties to use proper logfile path (startup doesn't immediately pick up dev-log4j.properties)
+RUN unzip -qq /var/lib/tomcat8/webapps/alfresco.war WEB-INF/classes/log4j.properties -d /tmp/alfresco \
+   && sed -i 's/File=alfresco\.log/File=\${catalina.base}\/logs\/alfresco.log/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
+   && sed -i 's/yyyy-MM-dd HH:mm:ss.SSS/ISO8601/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
+   && sed -i 's/%d{yyyy-MM-dd} %d{ABSOLUTE}/%d{ISO8601}/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
+   && sed -i 's/log4j\.rootLogger=error, Console, File/log4j.rootLogger=error, File/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
+   && cd /tmp/alfresco \
+   && zip -r /var/lib/tomcat8/webapps/alfresco.war . \
+   && rm -rf /tmp/alfresco
 
 # we also support /srv/alfresco/keystore and /srv/alfresco/defaultArtifacts but don't want to force a volume to be auto-created if not bound
 VOLUME ["/srv/alfresco/data"]
-
-ENV MAVEN_REQUIRED_ARTIFACTS= \
-   ALFRESCO_PLATFORM_VERSION=6.0.7-ga \
-   ALFRESCO_API_EXPLORER_VERSION=6.0.7-ga \
-   ALFRESCO_MMT_VERSION=6.0 \
-   ALFRESCO_ROOT_VERSION=6.0 \
-   ALFRESCO_AOS_VERSION=1.1.6 \
-   ALFRESCO_VTI_BIN_VERSION=1.1.5 \
-   ALFRESCO_SHARE_SERVICES_VERSION=6.0.c \
-   ALFRESCO_PLATFORM_WAR_ARTIFACT= \
-   ALFRESCO_PLATFORM_ROOT_WAR_ARTIFACT= \
-   MAVEN_ACTIVE_REPOSITORIES=alfresco,alfresco_ee,central,ossrh \
-   MAVEN_REPOSITORIES_central_URL=https://repo1.maven.org/maven2 \
-   MAVEN_REPOSITORIES_alfresco_URL=https://artifacts.alfresco.com/nexus/content/groups/public \
-   MAVEN_REPOSITORIES_alfresco_ee_URL=https://artifacts.alfresco.com/nexus/content/groups/private \
-   MAVEN_REPOSITORIES_ossrh_URL=https://oss.sonatype.org/content/repositories/snapshots \
-   JMX_RMI_PORT=5001
 
 LABEL vendor="${docker.labels.vendor}" \
    ${docker.labels.namespace}.version="${project.version.majorVersion}.${project.version.minorVersion}.${project.version.incrementalVersion}" \

@@ -15,13 +15,18 @@
 
     <properties>
         <docker.labels.namespace>de.acosix.docker.alfresco</docker.labels.namespace>
+
+        <imagemagick.version>7.0.8-33</imagemagick.version>
     </properties>
 
     <modules>
-        <module>jdk8-alfresco-repository</module>
-        <module>jdk8-alfresco-share</module>
-        <module>jdk8-alfresco-solr4</module>
-        <module>jdk8-alfresco-search-services</module>
+        <module>openjdk8-alfresco-repository</module>
+        <module>openjdk8-alfresco-share</module>
+        <module>openjdk8-alfresco-solr4</module>
+        <module>openjdk8-alfresco-search-services</module>
+        <module>openjdk11-alfresco-repository</module>
+        <module>openjdk11-alfresco-share</module>
+        <module>openjdk11-alfresco-search-services</module>
         <module>graalvm-alfresco-repository</module>
         <module>graalvm-alfresco-share</module>
         <module>graalvm-alfresco-solr4</module>

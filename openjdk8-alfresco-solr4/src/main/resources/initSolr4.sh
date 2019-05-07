@@ -81,7 +81,6 @@ then
    then
       echo "Initialising keystore from default"
       cp /srv/alfresco-solr4/defaultKeystore/* /srv/alfresco-solr4/keystore/ 2>/dev/null || :
-      chown tomcat8:tomcat8 /srv/alfresco-solr4/keystore/*
    fi
 
    echo "Setting up raw HTTP connector"

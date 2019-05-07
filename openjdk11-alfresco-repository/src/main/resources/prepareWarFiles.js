@@ -101,38 +101,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
 
 function parseRepositories(repositoriesStr)
 {
-   var repositories = splitMultiValuedVariable(repositoriesStr);
-   repositories.forEach(function (repository, idx, array)
-   {
-      var repositoryDescriptor, key;
-      repositoryDescriptor = {
-         id : repository,
-         baseUrl : null,
-         user : null,
-         password : null
-      };
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_URL';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.baseUrl = $ENV[key].trim();
-      }
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_USER';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.user = $ENV[key].trim();
-      }
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_PASSWORD';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.password = $ENV[key].trim();
-      }
-      
-      array[idx] = repositoryDescriptor;
-   });
-   
+   var repositories = JSON.parse(repositoriesStr);   
    return repositories;
 }
 
@@ -432,7 +401,7 @@ function main()
       apiExplorerWar : parseArtifactCoordinates('org.alfresco:api-explorer:war:' + alfrescoVersions.apiExplorer)
    };
    
-   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', 'alfresco,alfresco_ee,central'));
+   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', '[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'));
    artifacts = parseArtifacts(envOr('MAVEN_REQUIRED_ARTIFACTS', ''));
    
    requiredAlfrescoArtifacts = [alfrescoArtifacts.mmtJar, alfrescoArtifacts.platformRootWar, alfrescoArtifacts.platformWar];

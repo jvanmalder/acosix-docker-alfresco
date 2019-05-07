@@ -1,9 +1,9 @@
-var SUPPORTED_PACKAGINGS = ['war', 'amp', 'jar'];
+var SUPPORTED_PACKAGINGS = ['zip'];
 
 function envOr(envKey, defaultValue)
 {
    var value;
-   
+
    value = $ENV[envKey];
    if ((typeof value !== 'string' && !(value instanceof String)) || value.trim() === '')
    {
@@ -15,7 +15,7 @@ function envOr(envKey, defaultValue)
 function splitMultiValuedVariable(variableValue)
 {
    var values, fragments;
-   
+
    values = [];
    fragments = variableValue.split(/,/);
    fragments.forEach(function (fragment)
@@ -23,16 +23,16 @@ function splitMultiValuedVariable(variableValue)
       if(fragment.trim() !== '')
       {
          values.push(fragment.trim());
-      }      
+      }
    });
-   
+
    return values;
 }
 
 function parseArtifactCoordinates(coordinates, defaultPackaging)
 {
    var descriptor, fragments;
-   
+
    fragments = coordinates.split(/:/);
    descriptor = {
       groupId : null,
@@ -41,7 +41,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
       version : null,
       classifier : null,
       downloadedArtifactFile : null,
-      
+
       toString : function ()
       {
          var result;
@@ -52,7 +52,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
             result += ':' + this.classifier;
          }
          result += ':' + (this.version || '?');
-         
+
          return result;
       }
    };
@@ -83,7 +83,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
          }
       }
    });
-   
+
    if (descriptor.classifier === null && descriptor.packaging !== null && SUPPORTED_PACKAGINGS.indexOf(descriptor.packaging) === -1)
    {
       descriptor.classifier = descriptor.packaging;
@@ -95,7 +95,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
       descriptor.version = descriptor.classifier;
       descriptor.classifier = null;
    }
-   
+
    return descriptor;
 }
 
@@ -111,25 +111,25 @@ function parseRepositories(repositoriesStr)
          user : null,
          password : null
       };
-      
+
       key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_URL';
       if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
       {
          repositoryDescriptor.baseUrl = $ENV[key].trim();
       }
-      
+
       key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_USER';
       if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
       {
          repositoryDescriptor.user = $ENV[key].trim();
       }
-      
+
       key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_PASSWORD';
       if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
       {
          repositoryDescriptor.password = $ENV[key].trim();
       }
-      
+
       array[idx] = repositoryDescriptor;
    });
    
@@ -162,45 +162,45 @@ function tryDownload(url, user, password)
          authString = user + ":" + password;
          con.setRequestProperty('Authorization', 'Basic ' + java.util.Base64.getEncoder().encodeToString(authString.bytes));
       }
-      
+
       con.setRequestMethod("GET");
       con.setAllowUserInteraction(false);
       con.setDoInput(true);
       con.setDoOutput(false);
-      
-      
+
+
       fileName = url.substring(url.lastIndexOf('/') + 1);
       resultFile = $ARG.length > 0 ? new java.io.File(new java.io.File($ARG[0]), fileName) : new java.io.File(fileName);
-      
-      if (!resultFile.exists() || resultFile.length() === 0 || envOr('MAVEN_OVERRIDE_EXISTING_FILES', 'false') === 'true')
+
+      if (!resultFile.exists() || envOr('MAVEN_OVERRIDE_EXISTING_FILES', 'false') === 'true')
       {
          is = con.inputStream;
          os = new java.io.FileOutputStream(resultFile, false);
-         
+
          bytes = new Array(8192);
          bytes = Java.to(bytes, 'byte[]');
          totalBytesRead = 0;
-         
+
          while ((bytesRead = is.read(bytes)) !== -1)
          {
             os.write(bytes, 0, bytesRead);
-            
+
             totalBytesRead += bytesRead;
             // log every ~5 MiB
             if (totalBytesRead % (5 * 128 * 8192) < 8192)
             {
-               print('Download of ' + fileName + ' in progress - ' + totalBytesRead + ' bytes transferred');
+               print('Download in progress - ' + totalBytesRead + ' bytes transferred');
             }
          }
-         
+
          os.close();
          is.close();
-         
-         print('Download of ' + fileName + ' completed - ' + totalBytesRead + ' bytes transferred');
+
+         print('Download completed - ' + totalBytesRead + ' bytes transferred');
       }
       else
       {
-         print('File ' + fileName + ' already exists locally and override has not been requested via maven.overrideExistingFiles');
+         print('File already exists locally and override has not been requested via maven.overrideExistingFiles');
       }
    }
    catch (e)
@@ -209,17 +209,17 @@ function tryDownload(url, user, password)
       {
          resultFile.delete();
       }
-      
+
       if (os !== undefined && os !== null)
       {
          os.close();
       }
-      
+
       if (is !== undefined && is !== null)
       {
          is.close();
       }
-      
+
       if (!(e instanceof java.io.FileNotFoundException))
       {
          print('Error during download: ' + e.message);
@@ -230,7 +230,7 @@ function tryDownload(url, user, password)
 
 function determineSnapshotVersion(baseUrl, repositoryDescriptor)
 {
-   var metadataFile, metadata, matches, timestamp, buildNumber, snapshotVersion, metadataAltFile;
+   var metadataFile, metadata, matches, timestamp, buildNumber;
 
    try
    {
@@ -246,34 +246,19 @@ function determineSnapshotVersion(baseUrl, repositoryDescriptor)
          if (matches)
          {
             buildNumber = matches[1];
-            snapshotVersion = timestamp + '-' + buildNumber;
+            return timestamp + '-' + buildNumber;
          }
       }
 
-      if (!metadataFile.delete())
-      {
-         print('maven-metadata.xml could not be cleaned up - renaming to avoid re-use for other snapshot version determinations');
-
-         metadataAltFile = new java.io.File(metadataFile.parent, java.util.UUID.randomUUID().toString() + '.xml');
-         metadataFile.renameTo(metadataAltFile);
-         metadataAltFile.deleteOnExit();
-      }
+      metadataFile.delete();
    }
    catch(e)
    {
       if (metadataFile !== undefined)
       {
-         if (!metadataFile.delete())
-         {
-            print('maven-metadata.xml could not be cleaned up - renaming to avoid re-use for other snapshot version determinations');
-
-            metadataAltFile = new java.io.File(metadataFile.parent, java.util.UUID.randomUUID().toString() + '.xml');
-            metadataFile.renameTo(metadataAltFile);
-            metadataAltFile.deleteOnExit();
-         }
+         metadataFile.delete();
       }
    }
-   return snapshotVersion;
 }
 
 function downloadArtifact(artifactDescriptor, repositoryDescriptors)
@@ -281,13 +266,13 @@ function downloadArtifact(artifactDescriptor, repositoryDescriptors)
    repositoryDescriptors.forEach(function (repositoryDescriptor)
    {
       var expectedUrl, snapshotVersion;
-
+      
       if (artifactDescriptor.downloadedArtifactFile === null || !artifactDescriptor.downloadedArtifactFile.exists())
       {
          if (repositoryDescriptor.baseUrl !== null)
          {
             print('Attempting to download ' + artifactDescriptor + ' from ' + repositoryDescriptor.id);
-
+            
             expectedUrl = repositoryDescriptor.baseUrl;
             if (!expectedUrl.endsWith('/'))
             {
@@ -303,8 +288,6 @@ function downloadArtifact(artifactDescriptor, repositoryDescriptors)
             if (/-SNAPSHOT$/.test(artifactDescriptor.version))
             {
                snapshotVersion = determineSnapshotVersion(expectedUrl, repositoryDescriptor);
-
-               print('Artifact defines SNAPSHOT-version - determined timestamp-based snapshot version ' + snapshotVersion + ' for download from ' + repositoryDescriptor.id);
             }
 
             expectedUrl += artifactDescriptor.artifactId;
@@ -375,7 +358,7 @@ function downloadArtifacts(artifactDsscriptors, repositoryDescriptors)
       {
          throw new Error('Incomplete artifact descriptor: ' + JSON.stringify(artifactDescriptor));
       }
-      
+
       if (artifactDescriptor.downloadedArtifactFile === null || !artifactDescriptor.downloadedArtifactFile.exists())
       {
          throw new Error(String(artifactDescriptor) + ' not found in any of the configured repositories');
@@ -383,26 +366,40 @@ function downloadArtifacts(artifactDsscriptors, repositoryDescriptors)
    });
 }
 
-function installArtifacts(platformWar, mmtJar, artifactsToInstall)
+function installArtifacts(solr4War, artifactsToInstall)
 {
    artifactsToInstall.forEach(function (artifact)
    {
-      var cmdLine, processBuilder, process, uri, zipFs;
-      if (artifact.packaging === 'amp' || artifact.downloadedArtifactFile.name.endsWith('.amp'))
+      var uri, zipFs;
+      if (artifact.packaging === 'jar' || artifact.downloadedArtifactFile.name.endsWith('.jar'))
       {
-         cmdLine = '';
-         if (java.lang.System.getProperty('os.name').toLowerCase(java.util.Locale.ENGLISH).indexOf('windows') !== -1)
+         try
          {
-            cmdLine = 'cmd /c ';
+            uri = new java.net.URI('jar:' + solr4War.downloadedArtifactFile.toURI());
+            zipFsProps = new java.util.HashMap();
+            zipFsProps.create = 'false';
+            zipFsProps.encoding = 'UTF-8';
+            zipFs = java.nio.file.FileSystems.newFileSystem(uri, zipFsProps);
+            
+            java.nio.file.Files.copy(artifact.downloadedArtifactFile.toPath(),
+               zipFs.getPath('/WEB-INF', ['lib', artifact.downloadedArtifactFile.name]),
+               java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            zipFs.close();
          }
-         cmdLine += 'java -jar ' + mmtJar.downloadedArtifactFile.canonicalPath + ' install ' + artifact.downloadedArtifactFile.canonicalPath + ' ' + platformWar.downloadedArtifactFile.canonicalPath;
-         processBuilder = new java.lang.ProcessBuilder(cmdLine.split(/\s/));
-         processBuilder.inheritIO();
-         process = processBuilder.start();
-         
-         if (process.waitFor() !== 0)
+         catch (e)
          {
-            throw new Error('Failed to install ' + artifact);
+            if (zipFs !== undefined && zipFs !== null)
+            {
+               zipFs.close();
+            }
+
+            print('Error adding JAR to WAR: ' + e.message);
+            if (typeof e.printStackTrace === 'function')
+            {
+               e.printStackTrace();
+            }
+
+            throw e;
          }
       }
    });
@@ -410,84 +407,19 @@ function installArtifacts(platformWar, mmtJar, artifactsToInstall)
 
 function main()
 {
-   var alfrescoVersions, alfrescoArtifacts, repositories, artifacts, requiredAlfrescoArtifacts, artifactsToInstall;
-   
+   var alfrescoVersions, alfrescoArtifacts, repositories, requiredAlfrescoArtifacts;
+
    alfrescoVersions = {
-      platform : envOr('ALFRESCO_PLATFORM_VERSION', '6.0.7-ga'),
-      aos : envOr('ALFRESCO_AOS_VERSION', '1.1.6'),
-      vtiBin : envOr('ALFRESCO_VTI_BIN_VERSION', '1.1.5'),
-      mmt : envOr('ALFRESCO_MMT_VERSION', '6.0'),
-      root : envOr('ALFRESCO_ROOT_VERSION', '6.0'),
-      shareServices : envOr('ALFRESCO_SHARE_SERVICES_VERSION', '6.0.c'),
-      apiExplorer : envOr('ALFRESCO_API_EXPLORER_VERSION', '6.0.7-ga')
+      ASS : envOr('ALFRESCO_ASS_VERSION', '1.1.1')
    };
-   
+
    alfrescoArtifacts = {
-      mmtJar : parseArtifactCoordinates('org.alfresco:alfresco-mmt:jar:' + alfrescoVersions.mmt),
-      shareServicesAmp : parseArtifactCoordinates('org.alfresco:alfresco-share-services:amp:' + alfrescoVersions.shareServices),
-      aosAmp : parseArtifactCoordinates('org.alfresco.aos-module:alfresco-aos-module:amp:' + alfrescoVersions.aos),
-      vtiBinWar : parseArtifactCoordinates('org.alfresco.aos-module:alfresco-vti-bin:war:' + alfrescoVersions.vtiBin),
-      platformWar : parseArtifactCoordinates(envOr('ALFRESCO_PLATFORM_WAR_ARTIFACT', 'org.alfresco:content-services-community:war:' + alfrescoVersions.platform)),
-      platformRootWar : parseArtifactCoordinates(envOr('ALFRESCO_PLATFORM_ROOT_WAR_ARTIFACT', 'org.alfresco:alfresco-server-root:war:' + alfrescoVersions.root)),
-      apiExplorerWar : parseArtifactCoordinates('org.alfresco:api-explorer:war:' + alfrescoVersions.apiExplorer)
+      ASSzip : parseArtifactCoordinates(envOr('ALFRESCO_ASS_ARTIFACT', 'org.alfresco:alfresco-search-services:zip:' + alfrescoVersions.ASS))
    };
-   
+
    repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', 'alfresco,alfresco_ee,central'));
-   artifacts = parseArtifacts(envOr('MAVEN_REQUIRED_ARTIFACTS', ''));
-   
-   requiredAlfrescoArtifacts = [alfrescoArtifacts.mmtJar, alfrescoArtifacts.platformRootWar, alfrescoArtifacts.platformWar];
-   if ($ENV['INSTALL_AOS'] === 'true')
-   {
-      requiredAlfrescoArtifacts.push(alfrescoArtifacts.aosAmp);
-      requiredAlfrescoArtifacts.push(alfrescoArtifacts.vtiBinWar);
-   }
-
-   if ($ENV['INSTALL_SHARE_SERVICES'] === 'true')
-   {
-      requiredAlfrescoArtifacts.push(alfrescoArtifacts.shareServicesAmp);
-   }
-   
-   if ($ENV['INSTALL_API_EXPLORER'] === 'true')
-   {
-       requiredAlfrescoArtifacts.push(alfrescoArtifacts.apiExplorerWar);
-   }
-   
+   requiredAlfrescoArtifacts = [alfrescoArtifacts.ASSzip];
    downloadArtifacts(requiredAlfrescoArtifacts, repositories);
-   downloadArtifacts(artifacts, repositories);
-   
-   artifactsToInstall = [];
-   if ($ENV['INSTALL_AOS'] === 'true')
-   {
-      artifactsToInstall.push(alfrescoArtifacts.aosAmp);
-   }
-   if ($ENV['INSTALL_SHARE_SERVICES'] === 'true')
-   {
-      artifactsToInstall.push(alfrescoArtifacts.shareServicesAmp);
-   }
-   artifactsToInstall = artifactsToInstall.concat(artifacts);
-   installArtifacts(alfrescoArtifacts.platformWar, alfrescoArtifacts.mmtJar, artifactsToInstall);
-   
-   if (alfrescoArtifacts.platformWar.downloadedArtifactFile.name !== 'alfresco.war')
-   {
-      alfrescoArtifacts.platformWar.downloadedArtifactFile.renameTo(new java.io.File(alfrescoArtifacts.platformWar.downloadedArtifactFile.parent, 'alfresco.war'));
-   }
-   
-   if (alfrescoArtifacts.platformRootWar.downloadedArtifactFile.name !== 'ROOT.war')
-   {
-      alfrescoArtifacts.platformRootWar.downloadedArtifactFile.renameTo(new java.io.File(alfrescoArtifacts.platformRootWar.downloadedArtifactFile.parent, 'ROOT.war'));
-   }
-   
-   if (alfrescoArtifacts.vtiBinWar.downloadedArtifactFile !== null && alfrescoArtifacts.vtiBinWar.downloadedArtifactFile.name !== '_vti_bin.war')
-   {
-      alfrescoArtifacts.vtiBinWar.downloadedArtifactFile.renameTo(new java.io.File(alfrescoArtifacts.vtiBinWar.downloadedArtifactFile.parent, '_vti_bin.war'));
-   }
-
-   if (alfrescoArtifacts.apiExplorerWar.downloadedArtifactFile !== null && alfrescoArtifacts.apiExplorerWar.downloadedArtifactFile.name !== 'api-explorer.war')
-   {
-      alfrescoArtifacts.apiExplorerWar.downloadedArtifactFile.renameTo(new java.io.File(alfrescoArtifacts.apiExplorerWar.downloadedArtifactFile.parent, 'api-explorer.war'));
-   }
-
-   alfrescoArtifacts.mmtJar.downloadedArtifactFile.delete();
 }
 
 main();

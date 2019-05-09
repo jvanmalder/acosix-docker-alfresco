@@ -3,7 +3,7 @@ var SUPPORTED_PACKAGINGS = ['war', 'amp', 'jar'];
 function envOr(envKey, defaultValue)
 {
    var value;
-   
+
    value = $ENV[envKey];
    if ((typeof value !== 'string' && !(value instanceof String)) || value.trim() === '')
    {
@@ -15,7 +15,7 @@ function envOr(envKey, defaultValue)
 function splitMultiValuedVariable(variableValue)
 {
    var values, fragments;
-   
+
    values = [];
    fragments = variableValue.split(/,/);
    fragments.forEach(function (fragment)
@@ -23,16 +23,16 @@ function splitMultiValuedVariable(variableValue)
       if(fragment.trim() !== '')
       {
          values.push(fragment.trim());
-      }      
+      }
    });
-   
+
    return values;
 }
 
 function parseArtifactCoordinates(coordinates, defaultPackaging)
 {
    var descriptor, fragments;
-   
+
    fragments = coordinates.split(/:/);
    descriptor = {
       groupId : null,
@@ -41,7 +41,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
       version : null,
       classifier : null,
       downloadedArtifactFile : null,
-      
+
       toString : function ()
       {
          var result;
@@ -52,7 +52,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
             result += ':' + this.classifier;
          }
          result += ':' + (this.version || '?');
-         
+
          return result;
       }
    };
@@ -83,7 +83,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
          }
       }
    });
-   
+
    if (descriptor.classifier === null && descriptor.packaging !== null && SUPPORTED_PACKAGINGS.indexOf(descriptor.packaging) === -1)
    {
       descriptor.classifier = descriptor.packaging;
@@ -95,45 +95,13 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
       descriptor.version = descriptor.classifier;
       descriptor.classifier = null;
    }
-   
+
    return descriptor;
 }
 
 function parseRepositories(repositoriesStr)
-{
-   var repositories = splitMultiValuedVariable(repositoriesStr);
-   repositories.forEach(function (repository, idx, array)
-   {
-      var repositoryDescriptor, key;
-      repositoryDescriptor = {
-         id : repository,
-         baseUrl : null,
-         user : null,
-         password : null
-      };
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_URL';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.baseUrl = $ENV[key].trim();
-      }
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_USER';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.user = $ENV[key].trim();
-      }
-      
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_PASSWORD';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.password = $ENV[key].trim();
-      }
-      
-      array[idx] = repositoryDescriptor;
-   });
-   
-   return repositories;
+{   
+   return JSON.parse(repositoriesStr);
 }
 
 function parseArtifacts(artifactsStr)
@@ -162,13 +130,13 @@ function tryDownload(url, user, password)
          authString = user + ":" + password;
          con.setRequestProperty('Authorization', 'Basic ' + java.util.Base64.getEncoder().encodeToString(authString.bytes));
       }
-      
+
       con.setRequestMethod("GET");
       con.setAllowUserInteraction(false);
       con.setDoInput(true);
       con.setDoOutput(false);
-      
-      
+
+
       fileName = url.substring(url.lastIndexOf('/') + 1);
       resultFile = $ARG.length > 0 ? new java.io.File(new java.io.File($ARG[0]), fileName) : new java.io.File(fileName);
       
@@ -176,15 +144,15 @@ function tryDownload(url, user, password)
       {
          is = con.inputStream;
          os = new java.io.FileOutputStream(resultFile, false);
-         
+
          bytes = new Array(8192);
          bytes = Java.to(bytes, 'byte[]');
          totalBytesRead = 0;
-         
+
          while ((bytesRead = is.read(bytes)) !== -1)
          {
             os.write(bytes, 0, bytesRead);
-            
+
             totalBytesRead += bytesRead;
             // log every ~5 MiB
             if (totalBytesRead % (5 * 128 * 8192) < 8192)
@@ -192,7 +160,7 @@ function tryDownload(url, user, password)
                print('Download of ' + fileName + ' in progress - ' + totalBytesRead + ' bytes transferred');
             }
          }
-         
+
          os.close();
          is.close();
          
@@ -209,17 +177,17 @@ function tryDownload(url, user, password)
       {
          resultFile.delete();
       }
-      
+
       if (os !== undefined && os !== null)
       {
          os.close();
       }
-      
+
       if (is !== undefined && is !== null)
       {
          is.close();
       }
-      
+
       if (!(e instanceof java.io.FileNotFoundException))
       {
          print('Error during download: ' + e.message);
@@ -375,7 +343,7 @@ function downloadArtifacts(artifactDsscriptors, repositoryDescriptors)
       {
          throw new Error('Incomplete artifact descriptor: ' + JSON.stringify(artifactDescriptor));
       }
-      
+
       if (artifactDescriptor.downloadedArtifactFile === null || !artifactDescriptor.downloadedArtifactFile.exists())
       {
          throw new Error(String(artifactDescriptor) + ' not found in any of the configured repositories');
@@ -432,7 +400,7 @@ function main()
       apiExplorerWar : parseArtifactCoordinates('org.alfresco:api-explorer:war:' + alfrescoVersions.apiExplorer)
    };
    
-   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', 'alfresco,alfresco_ee,central'));
+   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', '[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'));
    artifacts = parseArtifacts(envOr('MAVEN_REQUIRED_ARTIFACTS', ''));
    
    requiredAlfrescoArtifacts = [alfrescoArtifacts.mmtJar, alfrescoArtifacts.platformRootWar, alfrescoArtifacts.platformWar];

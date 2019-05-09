@@ -1,8 +1,8 @@
-version: '2.0'
+version: '3.0'
 
 services:
   postgres:
-    image: baseimage-postgresql:latest
+    image: acosix/baseimage-postgresql:latest
     ports:
     - 6432:5432
     hostname: postgres
@@ -24,9 +24,11 @@ services:
     - PGCONF_default_statistics_target=100
 #    - PGCONF_track_io_timing=on
     restart: unless-stopped
+    networks:
+    - alfresco
 
   repository:
-     image: jdk8-alfresco-repository:latest
+     image: acosix/openjdk11-alfresco-repository:latest
      depends_on:
      - postgres
      ports:
@@ -38,32 +40,30 @@ services:
      - contentstore:/srv/alfresco/data
      - keystore:/srv/alfresco/keystore
      environment:
-     - JAVA_XMS=2G
-     - JAVA_XMX=2G
+     - JAVA_XMS=4G
+     - JAVA_XMX=8G
      - POSTGRES_ENABLED=true
-     - DB_HOST=10.0.75.1
-     - DB_PORT=6432
-     - SOLR_HOST=10.0.75.1
+     - DB_HOST=postgres
+     - DB_PORT=5432
+     - SOLR_HOST=solr
      - SOLR_PORT=8983
 #     - SOLR_PORT=8084
 #     - SOLR_SSL_PORT=8085
 #     - SEARCH_SUBSYSTEM=solr4
-     - PROXY_NAME=10.0.75.1
-     - PROXY_PORT=80
-     - PROXY_SSL_PORT=443
-     - ENABLE_SSL_PROXY=false
-     - ENABLE_SHARE_SSL_PROXY=false
-     - SHARE_PROXY_NAME=10.0.75.1
-     - SHARE_PROXY_PORT=80
-     - SHARE_PROXY_SSL_PORT=443
-     - MAVEN_REQUIRED_ARTIFACTS=org.orderofthebee.support-tools:support-tools-repo:amp:1.0.0.0,de.fmaul:javascript-console-repo:amp:0.6
-     - INSTALL_AOS=true
-     - INSTALL_SHARE_SERVICES=true
-     - INSTALL_API_EXPLORER=true
+     - PROXY_NAME=localhost
+     - PROXY_PORT=8080
+#     - PROXY_SSL_PORT=443
+#     - ENABLE_SSL_PROXY=false
+#     - ENABLE_SHARE_SSL_PROXY=false
+     - SHARE_PROXY_NAME=localhost
+     - SHARE_PROXY_PORT=8082
+#     - SHARE_PROXY_SSL_PORT=443
      restart: unless-stopped
+     networks:
+     - alfresco
 
   share:
-     image: jdk8-alfresco-share:latest
+     image: acosix/openjdk11-alfresco-share:latest
      depends_on:
      - repository
      ports:
@@ -72,23 +72,25 @@ services:
      - 5002:5002
      hostname: share
      environment:
-     - PROXY_NAME=10.0.75.1
-     - PROXY_PORT=80
-     - PROXY_SSL_PORT=443
-     - ENABLE_SSL_PROXY=false
-     - REPOSITORY_HOST=10.0.75.1
+     - PROXY_NAME=localhost
+     - PROXY_PORT=8082
+#     - PROXY_SSL_PORT=443
+#     - ENABLE_SSL_PROXY=false
+     - REPOSITORY_HOST=repository
      - REPOSITORY_PORT=8080
      - LOCAL_PORT=8082
-     - LOCAL_SSL_PORT=8083
-     - PUBLIC_REPOSITORY_HOST=10.0.75.1
+#     - LOCAL_SSL_PORT=8083
+     - PUBLIC_REPOSITORY_HOST=localhost
      - PUBLIC_REPOSITORY_PORT=8080
-     - PUBLIC_REPOSITORY_SSL_PORT=443
+#     - PUBLIC_REPOSITORY_SSL_PORT=443
      - ACCESS_PUBLIC_REPOSITORY_VIA_SSL=false
      - MAVEN_REQUIRED_ARTIFACTS=org.orderofthebee.support-tools:support-tools-share:amp:0.0.1.0,de.fmaul:javascript-console-share:amp:0.6
      restart: unless-stopped
+     networks:
+     - alfresco
 
   solr:
-     image: jdk8-alfresco-search-services:latest
+     image: acosix/openjdk11-alfresco-search-services:latest
 #     image: jdk8-alfresco-solr4:latest
      depends_on:
      - repository
@@ -103,13 +105,15 @@ services:
      - solrHome:/srv/alfresco-search-services/coreConfigs
      environment:
      - SOLR_HOST=solr
-     - REPOSITORY_HOST=10.0.75.1
+     - REPOSITORY_HOST=repository
      - REPOSITORY_PORT=8080
-     - REPOSITORY_SSL_PORT=8081
+#     - REPOSITORY_SSL_PORT=8081
      - ENABLED_CORES=alfresco,archive
      - ENABLE_REMOTE_JMX_OPTS=false
-     - JMX_HOST=10.0.75.1
+#     - JMX_HOST=10.0.75.1
      restart: unless-stopped
+     networks:
+     - alfresco
 
 #  apache:
 #     image: acosix-alfresco-docker-apache:latest
@@ -135,3 +139,9 @@ volumes:
   index:
   solrHome:
   certs:
+
+networks:
+  alfresco:
+    ipam:
+      config:
+      - subnet: 192.168.21.0/24

@@ -152,7 +152,7 @@ EXPOSE 8080 8081 8082 8083 5001 10445 10137-10139 10025 10021 11000-11099
 # we also support /srv/alfresco/keystore and /srv/alfresco/defaultArtifacts but don't want to force a volume to be auto-created if not bound
 VOLUME ["/srv/alfresco/data"]
 
-ARG maven_required_artifacts=
+ARG maven_required_artifacts='org.orderofthebee.support-tools:support-tools-repo:amp:1.0.0.0,de.fmaul:javascript-console-repo:amp:0.6'
 ARG alfresco_platform_version=6.1.2-ga
 ARG alfresco_api_explorer_version=6.0.7-ga
 ARG alfresco_mmt_version=6.0
@@ -164,6 +164,9 @@ ARG alfresco_platform_war_artifact=
 ARG alfresco_platform_root_war_artifact=
 ARG maven_active_repositories='[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'
 ARG jmx_rmi_port=5001
+ARG install_aos=true
+ARG install_share_services=true
+ARG install_api_explorer=true
 
 ENV MAVEN_REQUIRED_ARTIFACTS=$maven_required_artifacts
 ENV ALFRESCO_PLATFORM_VERSION=$alfresco_platform_version
@@ -176,6 +179,9 @@ ENV ALFRESCO_SHARE_SERVICES_VERSION=$alfresco_share_services_version
 ENV ALFRESCO_PLATFORM_WAR_ARTIFACT=$alfresco_platform_war_artifact
 ENV ALFRESCO_PLATFORM_ROOT_WAR_ARTIFACT=$alfresco_platform_root_war_artifact
 ENV MAVEN_ACTIVE_REPOSITORIES=$maven_active_repositories
+ENV INSTALL_AOS=$install_aos
+ENV INSTALL_SHARE_SERVICES=$install_share_services
+ENV INSTALL_API_EXPLORER=$install_api_explorer
 ENV JMX_RMI_PORT=$jmx_rmi_port
 
 # build your custom Alfresco now instead of on first run
@@ -183,16 +189,6 @@ RUN jjs -scripting /var/lib/tomcat8/prepareWarFiles.js -- /tmp \
    && mv /tmp/*.war /var/lib/tomcat8/webapps/ \
    && mv /tmp/*.jar /srv/alfresco/modules/ || true \
    && rm -f /tmp/*.jar /tmp/*.amp /tmp/*.war* /tmp/PUT_ARTIFACTS_HERE
-
-# fixup bundled log4j.properties to use proper logfile path (startup doesn't immediately pick up dev-log4j.properties)
-RUN unzip -qq /var/lib/tomcat8/webapps/alfresco.war WEB-INF/classes/log4j.properties -d /tmp/alfresco \
-   && sed -i 's/File=alfresco\.log/File=\${catalina.base}\/logs\/alfresco.log/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/yyyy-MM-dd HH:mm:ss.SSS/ISO8601/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/%d{yyyy-MM-dd} %d{ABSOLUTE}/%d{ISO8601}/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/log4j\.rootLogger=error, Console, File/log4j.rootLogger=error, File/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && cd /tmp/alfresco \
-   && zip -r /var/lib/tomcat8/webapps/alfresco.war . \
-   && rm -rf /tmp/alfresco
 
 LABEL vendor="${docker.labels.vendor}" \
    ${docker.labels.namespace}.version="${project.version.majorVersion}.${project.version.minorVersion}.${project.version.incrementalVersion}" \

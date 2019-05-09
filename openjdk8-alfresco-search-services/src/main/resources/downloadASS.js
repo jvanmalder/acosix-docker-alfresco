@@ -100,40 +100,8 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
 }
 
 function parseRepositories(repositoriesStr)
-{
-   var repositories = splitMultiValuedVariable(repositoriesStr);
-   repositories.forEach(function (repository, idx, array)
-   {
-      var repositoryDescriptor, key;
-      repositoryDescriptor = {
-         id : repository,
-         baseUrl : null,
-         user : null,
-         password : null
-      };
-
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_URL';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.baseUrl = $ENV[key].trim();
-      }
-
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_USER';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.user = $ENV[key].trim();
-      }
-
-      key = 'MAVEN_REPOSITORIES_' + repositoryDescriptor.id + '_PASSWORD';
-      if ((typeof $ENV[key] === 'string' || $ENV[key] instanceof String) && $ENV[key].trim() !== '')
-      {
-         repositoryDescriptor.password = $ENV[key].trim();
-      }
-
-      array[idx] = repositoryDescriptor;
-   });
-   
-   return repositories;
+{   
+   return JSON.parse(repositoriesStr);
 }
 
 function parseArtifacts(artifactsStr)
@@ -171,8 +139,8 @@ function tryDownload(url, user, password)
 
       fileName = url.substring(url.lastIndexOf('/') + 1);
       resultFile = $ARG.length > 0 ? new java.io.File(new java.io.File($ARG[0]), fileName) : new java.io.File(fileName);
-
-      if (!resultFile.exists() || envOr('MAVEN_OVERRIDE_EXISTING_FILES', 'false') === 'true')
+      
+      if (!resultFile.exists() || resultFile.length() === 0 || envOr('MAVEN_OVERRIDE_EXISTING_FILES', 'false') === 'true')
       {
          is = con.inputStream;
          os = new java.io.FileOutputStream(resultFile, false);
@@ -189,18 +157,18 @@ function tryDownload(url, user, password)
             // log every ~5 MiB
             if (totalBytesRead % (5 * 128 * 8192) < 8192)
             {
-               print('Download in progress - ' + totalBytesRead + ' bytes transferred');
+               print('Download of ' + fileName + ' in progress - ' + totalBytesRead + ' bytes transferred');
             }
          }
 
          os.close();
          is.close();
-
-         print('Download completed - ' + totalBytesRead + ' bytes transferred');
+         
+         print('Download of ' + fileName + ' completed - ' + totalBytesRead + ' bytes transferred');
       }
       else
       {
-         print('File already exists locally and override has not been requested via maven.overrideExistingFiles');
+         print('File ' + fileName + ' already exists locally and override has not been requested via maven.overrideExistingFiles');
       }
    }
    catch (e)
@@ -266,13 +234,13 @@ function downloadArtifact(artifactDescriptor, repositoryDescriptors)
    repositoryDescriptors.forEach(function (repositoryDescriptor)
    {
       var expectedUrl, snapshotVersion;
-      
+
       if (artifactDescriptor.downloadedArtifactFile === null || !artifactDescriptor.downloadedArtifactFile.exists())
       {
          if (repositoryDescriptor.baseUrl !== null)
          {
             print('Attempting to download ' + artifactDescriptor + ' from ' + repositoryDescriptor.id);
-            
+
             expectedUrl = repositoryDescriptor.baseUrl;
             if (!expectedUrl.endsWith('/'))
             {
@@ -417,7 +385,7 @@ function main()
       ASSzip : parseArtifactCoordinates(envOr('ALFRESCO_ASS_ARTIFACT', 'org.alfresco:alfresco-search-services:zip:' + alfrescoVersions.ASS))
    };
 
-   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', 'alfresco,alfresco_ee,central'));
+   repositories = parseRepositories(envOr('MAVEN_ACTIVE_REPOSITORIES', '[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'));
    requiredAlfrescoArtifacts = [alfrescoArtifacts.ASSzip];
    downloadArtifacts(requiredAlfrescoArtifacts, repositories);
 }

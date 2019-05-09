@@ -101,8 +101,7 @@ function parseArtifactCoordinates(coordinates, defaultPackaging)
 
 function parseRepositories(repositoriesStr)
 {
-   var repositories = JSON.parse(repositoriesStr);   
-   return repositories;
+   return JSON.parse(repositoriesStr);   
 }
 
 function parseArtifacts(artifactsStr)

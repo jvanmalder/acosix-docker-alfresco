@@ -282,6 +282,37 @@ then
       sed -i "s/#withoutAlfrescoSupportTools#//g" /srv/alfresco/config/alfresco/extension/dev-log4j.properties
    fi
 
+   if [ ! -f '/var/lib/tomcat8/webapps/alfresco.war' ]
+   then
+      echo "Preparing Repository WARs (including modules)" > /proc/1/fd/1
+      if [[ -d '/srv/alfresco/defaultArtifacts' ]]
+      then
+         echo "Using default artifacts: $(ls -A /srv/alfresco/defaultArtifacts)" > /proc/1/fd/1
+         # in case folder is empty we have to suppress error code
+         cp /srv/alfresco/defaultArtifacts/* /tmp/ 2>/dev/null || :
+      fi
+      jjs -scripting /var/lib/tomcat8/prepareWarFiles.js -- /tmp
+      mv /tmp/*.war /var/lib/tomcat8/webapps/
+
+      if [[ ! -z "$(ls -A /tmp/*.jar)" ]]
+      then
+         mv /tmp/*.jar /srv/alfresco/modules/
+      fi
+
+      rm -f /tmp/*.jar /tmp/*.amp /tmp/*.war*
+   fi
+
+   # fixup bundled log4j.properties to use proper logfile path (startup doesn't immediately pick up dev-log4j.properties)
+   unzip -qq /var/lib/tomcat8/webapps/alfresco.war WEB-INF/classes/log4j.properties -d /tmp/alfresco
+   sed -i 's/File=alfresco\.log/File=\${catalina.base}\/logs\/alfresco.log/' /tmp/alfresco/WEB-INF/classes/log4j.properties
+   sed -i 's/yyyy-MM-dd HH:mm:ss.SSS/ISO8601/' /tmp/alfresco/WEB-INF/classes/log4j.properties
+   sed -i 's/%d{yyyy-MM-dd} %d{ABSOLUTE}/%d{ISO8601}/' /tmp/alfresco/WEB-INF/classes/log4j.properties
+   sed -i 's/log4j\.rootLogger=error, Console, File/log4j.rootLogger=error, File/' /tmp/alfresco/WEB-INF/classes/log4j.properties
+   cd /tmp/alfresco
+   zip -r /var/lib/tomcat8/webapps/alfresco.war .
+   cd /
+   rm -rf /tmp/alfresco
+
    if [[ $INIT_KEYSTORE_FROM_DEFAULT == true && -z "$(ls -A /srv/alfresco/keystore)" ]]
    then
       echo "Initialising keystore from default" > /proc/1/fd/1

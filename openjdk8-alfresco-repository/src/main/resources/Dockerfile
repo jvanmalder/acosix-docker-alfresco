@@ -125,12 +125,6 @@ RUN tar xzf /tmp/alfresco-pdf-renderer-*-linux.tgz \
    && rm /tmp/alfresco-pdf-renderer-*-linux.tgz \
    && chmod 755 /usr/bin/alfresco-pdf-renderer
 
-# Public HTTP ports for reverse-proxy: 8080 / 8081 (assumed secured via SSL)
-# Private HTTP ports for SOLR: 8082 / 8083 (active SSL)
-# JMX / RMI port: 5001 (aligned with SOLR + Share images so that each havea a distinct port - it's hard to forward JMX / RMI otherwise due JVM having to know the public port you're exposing via Docker)
-# Various protocol ports: 10025 (inboundSMTP) / 10445,10137-10139 (CIFS/SMB) / 10021 FTP (active) / 11000-11099 FTP (passive)
-EXPOSE 8080 8081 8082 8083 5001 10445 10137-10139 10025 10021 11000-11099
-
 # add prepared files that would be too awkward to handle via RUN / sed
 COPY *.jar alfresco.xml alfresco-logrotate.d initAlfresco.sh prepareWarFiles.js alfresco-ng.conf repository-config defaultArtifacts /tmp/
 
@@ -181,15 +175,11 @@ RUN jjs -scripting /var/lib/tomcat8/prepareWarFiles.js -- /tmp \
    && mv /tmp/*.jar /srv/alfresco/modules/ || true \
    && rm -f /tmp/*.jar /tmp/*.amp /tmp/*.war* /tmp/PUT_ARTIFACTS_HERE
 
-# fixup bundled log4j.properties to use proper logfile path (startup doesn't immediately pick up dev-log4j.properties)
-RUN unzip -qq /var/lib/tomcat8/webapps/alfresco.war WEB-INF/classes/log4j.properties -d /tmp/alfresco \
-   && sed -i 's/File=alfresco\.log/File=\${catalina.base}\/logs\/alfresco.log/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/yyyy-MM-dd HH:mm:ss.SSS/ISO8601/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/%d{yyyy-MM-dd} %d{ABSOLUTE}/%d{ISO8601}/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && sed -i 's/log4j\.rootLogger=error, Console, File/log4j.rootLogger=error, File/' /tmp/alfresco/WEB-INF/classes/log4j.properties \
-   && cd /tmp/alfresco \
-   && zip -r /var/lib/tomcat8/webapps/alfresco.war . \
-   && rm -rf /tmp/alfresco
+# Public HTTP ports for reverse-proxy: 8080 / 8081 (assumed secured via SSL)
+# Private HTTP ports for SOLR: 8082 / 8083 (active SSL)
+# JMX / RMI port: 5001 (aligned with SOLR + Share images so that each havea a distinct port - it's hard to forward JMX / RMI otherwise due JVM having to know the public port you're exposing via Docker)
+# Various protocol ports: 10025 (inboundSMTP) / 10445,10137-10139 (CIFS/SMB) / 10021 FTP (active) / 11000-11099 FTP (passive)
+EXPOSE 8080 8081 8082 8083 $jmx_rmi_port 10445 10137-10139 10025 10021 11000-11099
 
 # we also support /srv/alfresco/keystore and /srv/alfresco/defaultArtifacts but don't want to force a volume to be auto-created if not bound
 VOLUME ["/srv/alfresco/data"]

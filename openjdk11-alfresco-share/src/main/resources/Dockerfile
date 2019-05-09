@@ -14,17 +14,25 @@ RUN mv /tmp/share-logrotate.d /etc/logrotate.d/share \
    && mv /tmp/initShare.sh /etc/my_init.d/50_initShare.sh \
    && chmod +x /etc/my_init.d/50_initShare.sh
 
-ENV MAVEN_REQUIRED_ARTIFACTS= \
-   ALFRESCO_MMT_VERSION=6.0 \
-   ALFRESCO_SHARE_VERSION=6.0.c \
-   MAVEN_ACTIVE_REPOSITORIES=alfresco,alfresco_ee,central,ossrh \
-   MAVEN_REPOSITORIES_central_URL=https://repo1.maven.org/maven2 \
-   MAVEN_REPOSITORIES_alfresco_URL=https://artifacts.alfresco.com/nexus/content/groups/public \
-   MAVEN_REPOSITORIES_alfresco_ee_URL=https://artifacts.alfresco.com/nexus/content/groups/private \
-   MAVEN_REPOSITORIES_ossrh_URL=https://oss.sonatype.org/content/repositories/snapshots \
-   JMX_RMI_PORT=5002
+ARG maven_required_artifacts=
+ARG alfresco_mmt_version=6.0
+ARG alfresco_share_version=6.0.c
+ARG maven_active_repositories='[{"id": "alfresco", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/public", "user": null, "password": null}, {"id": "alfresco_ee", "baseUrl": "https://artifacts.alfresco.com/nexus/content/groups/private", "user": null, "password": null}, {"id": "central", "baseUrl": "https://repo1.maven.org/maven2", "user": null, "password": null}, {"id": "ossrh", "baseUrl": "https://oss.sonatype.org/content/repositories/snapshots", "user": null, "password": null}]'
+ARG jmx_rmi_port=5002
 
-EXPOSE 8080 8081 5002
+ENV MAVEN_REQUIRED_ARTIFACTS=$maven_required_artifacts
+ENV ALFRESCO_MMT_VERSION=$alfresco_mmt_version
+ENV ALFRESCO_SHARE_VERSION=$alfresco_share_version
+ENV MAVEN_ACTIVE_REPOSITORIES=$maven_active_repositories
+ENV JMX_RMI_PORT=$jmx_rmi_port
+
+EXPOSE 8080 8081 $jmx_rmi_port
+
+# build your custom Share now instead of on first run
+RUN jjs -scripting /var/lib/tomcat8/prepareWarFiles.js -- /tmp \
+   && mv /tmp/*.war /var/lib/tomcat8/webapps/ \
+   && mv /tmp/*.jar /srv/alfresco/modules/ || true \
+   && rm -f /tmp/*.jar /tmp/*.amp /tmp/*.war* /tmp/PUT_ARTIFACTS_HERE
 
 # we support /srv/alfresco/keystore and /srv/alfresco/defaultArtifacts but don't want to force a volume to be auto-created if not bound
 

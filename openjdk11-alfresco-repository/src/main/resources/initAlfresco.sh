@@ -55,6 +55,9 @@ SOLR_PORT=${SOLR_PORT:=80}
 SOLR_SSL_PORT=${SOLR_SSL_PORT:=443}
 ACCESS_SOLR_VIA_SSL=${ACCESS_SOLR_VIA_SSL:=false}
 
+MESSAGING_HOST=${MESSAGING_HOST:=localhost}
+MESSAGING_PORT=${MESSAGING_PORT:=61616}
+
 REQUIRED_ARTIFACTS=${MAVEN_REQUIRED_ARTIFACTS:=''}
 PLATFORM_VERSION=${ALFRESCO_PLATFORM_VERSION:=5.2.g}
 LEGACY_SUPPORT_TOOLS_INSTALLED=${ALFRESCO_SUPPORT_TOOLS_INSTALLED:=false}
@@ -153,7 +156,7 @@ then
    sed -i "s/%DB_USER%/${DB_USER}/g" /srv/alfresco/config/alfresco-global.properties
    sed -i "s/%DB_PW%/${DB_PW}/g" /srv/alfresco/config/alfresco-global.properties
 
-   ALFRESCO_ADMIN_PASSWORD=`printf '%s' "$ALFRESCO_ADMIN_PASSWORD" | iconv -t utf16le | openssl md4`
+   ALFRESCO_ADMIN_PASSWORD=`printf '%s' "$ALFRESCO_ADMIN_PASSWORD" | iconv -t utf16le | openssl md4 | cut -d' ' -f2`
    sed -i "s/%ADMIN_PW%/${ALFRESCO_ADMIN_PASSWORD}/g" /srv/alfresco/config/alfresco-global.properties
 
    sed -i "s/%SEARCH_SUBSYSTEM%/${SEARCH_SUBSYSTEM}/g" /srv/alfresco/config/alfresco-global.properties
@@ -167,6 +170,9 @@ then
    else
       sed -i "s/%SOLR_COMMS%/none/g" /srv/alfresco/config/alfresco-global.properties
    fi
+
+   sed -i "s/%MESSAGING_HOST%/${MESSAGING_HOST}/g" /srv/alfresco/config/alfresco-global.properties
+   sed -i "s/%MESSAGING_PORT%/${MESSAGING_PORT}/g" /srv/alfresco/config/alfresco-global.properties
 
    if [[ $ENABLE_SSL_PROXY == true ]]
    then
